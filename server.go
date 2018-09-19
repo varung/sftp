@@ -21,6 +21,9 @@ const (
 	SftpServerWorkerCount = 8
 )
 
+// use LocalFS
+var vfs VFS = DemoFS{}
+
 // Server is an SSH File Transfer Protocol (sftp) server.
 // This is intended to provide the sftp subsystem to an ssh server daemon.
 // This implementation currently supports most of sftp server protocol version 3,
@@ -180,7 +183,7 @@ func handlePacket(s *Server, p orderedRequest) error {
 	case *sshFxpFstatPacket:
 		f, ok := s.getHandle(p.Handle)
 		var err error = syscall.EBADF
-		var info VFileInfo
+		var info os.FileInfo
 		if ok {
 			info, err = f.Stat()
 			rpkt = sshFxpStatResponse{
@@ -193,7 +196,7 @@ func handlePacket(s *Server, p orderedRequest) error {
 		}
 	case *sshFxpMkdirPacket:
 		// TODO FIXME: ignore flags field
-		err := vfs.Mkdir(p.Path, 0755)
+		err := vfs.Mkdir(p.Path, 0754)
 		rpkt = statusFromError(p, err)
 	case *sshFxpRmdirPacket:
 		err := vfs.Remove(p.Path)
@@ -521,7 +524,7 @@ func (p sshFxpFsetstatPacket) respond(svr *Server) responsePacket {
 		} else {
 			atimeT := time.Unix(int64(atime), 0)
 			mtimeT := time.Unix(int64(mtime), 0)
-			err = os.Chtimes(f.Name(), atimeT, mtimeT)
+			err = vfs.Chtimes(f.Name(), atimeT, mtimeT)
 		}
 	}
 	if (p.Flags & ssh_FILEXFER_ATTR_UIDGID) != 0 {
